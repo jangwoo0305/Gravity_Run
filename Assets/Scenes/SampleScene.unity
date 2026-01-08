@@ -242,6 +242,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   edgeOffset: 0.3
+  jumpHeight: 1.2
+  jumpDuration: 0.5
   speed: 3
 --- !u!1 &519420028
 GameObject:

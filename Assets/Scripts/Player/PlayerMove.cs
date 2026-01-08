@@ -6,9 +6,16 @@ using UnityEngine;
 public class PlayerMove : MonoBehaviour
 {
     [SerializeField] public float edgeOffset = 0.3f;
+    [SerializeField] public float jumpHeight = 1.2f;
+    [SerializeField] public float jumpDuration = 0.5f;
+    
+    bool isJumping = false;
+    private float jumpOffset = 0f;
+    
     public float speed = 3f;
     private SpriteRenderer _spriteRend;
     Camera _cam;
+    Animator _anim;
     float minX, minY, maxX, maxY;
     
 
@@ -17,6 +24,7 @@ public class PlayerMove : MonoBehaviour
     {
         _spriteRend = GetComponent<SpriteRenderer>();
         _cam = Camera.main;
+        _anim = GetComponent<Animator>();
     }
 
     void Start()
@@ -42,6 +50,46 @@ public class PlayerMove : MonoBehaviour
     void Update()
     {
         MoveEdge();
+        if (Input.GetKeyDown(KeyCode.Space))
+        {
+            InputJump();
+        }
+    }
+
+    public void InputJump()
+    {
+        if (isJumping) return;
+        StartCoroutine(JumpCoroutine());
+    }
+
+    IEnumerator JumpCoroutine()
+    {
+        isJumping = true;
+        _anim.SetBool("IsJumping", true);
+        
+        float halfTime = jumpDuration * 0.5f;
+        float t = 0f;
+
+        while (t < halfTime)
+        {
+            t += Time.deltaTime;
+            float ratio  = t / halfTime;
+            jumpOffset = Mathf.Lerp(0f, jumpHeight, ratio);
+            yield return null;
+        }
+
+        t = 0f;
+
+        while (t < halfTime)
+        {
+            t += Time.deltaTime;
+            float ratio = t / halfTime;
+            jumpOffset = Mathf.Lerp(jumpHeight, 0f, ratio);
+            yield return null;
+        }
+        jumpOffset = 0f;
+        isJumping = false;
+        _anim.SetBool("IsJumping", false);
     }
 
     void ChangeEdge(Edge nextEdge)
@@ -101,7 +149,21 @@ public class PlayerMove : MonoBehaviour
                 }
                 break;
         }
+
+        pos += GetJumpDirection() * jumpOffset;
         transform.position = pos;
+    }
+
+    Vector3 GetJumpDirection()
+    {
+        switch (currentEdge)
+        {
+            case Edge.Bottom: return Vector3.up;
+            case Edge.Right: return Vector3.left;
+            case Edge.Top: return Vector3.down;
+            case Edge.Left: return Vector3.right;
+        }
+        return Vector3.zero;
     }
     public void UpdateVisualByEdge()
     {
@@ -127,4 +189,5 @@ public class PlayerMove : MonoBehaviour
         }
         transform.localRotation = Quaternion.Euler(0f, 0f, zRotation);
     }
+    
 }
