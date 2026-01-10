@@ -10,7 +10,14 @@ public class PlayerMove : MonoBehaviour
     [SerializeField] public float jumpDuration = 0.5f;
     
     bool isJumping = false;
-    private float jumpOffset = 0f;
+
+    int jumpCount = 0;
+    const int maxJumpCount = 2;
+    
+    private float jumpOffset = 0f; // 현재 공중 높이 (절대값)
+    float targetJumpOffset = 0f; // 이번 점프의 목표 놓이
+
+    private Vector3 basepos; // 점프 제외한 기준 위치
     
     public float speed = 3f;
     private SpriteRenderer _spriteRend;
@@ -58,15 +65,25 @@ public class PlayerMove : MonoBehaviour
 
     public void InputJump()
     {
-        if (isJumping) return;
+        if (jumpCount >= maxJumpCount) return;
+        
+        jumpCount ++;
+        
+        float maxTotalHeight = jumpHeight * maxJumpCount;
+        
+        targetJumpOffset = Mathf.Min(maxTotalHeight, jumpOffset+jumpHeight);
+        
+        StopAllCoroutines();
         StartCoroutine(JumpCoroutine());
+        
+        _anim.SetBool("IsJumping", true);
     }
 
     IEnumerator JumpCoroutine()
     {
         isJumping = true;
-        _anim.SetBool("IsJumping", true);
-        
+       
+        float startOffset = jumpOffset; 
         float halfTime = jumpDuration * 0.5f;
         float t = 0f;
 
@@ -74,7 +91,7 @@ public class PlayerMove : MonoBehaviour
         {
             t += Time.deltaTime;
             float ratio  = t / halfTime;
-            jumpOffset = Mathf.Lerp(0f, jumpHeight, ratio);
+            jumpOffset = Mathf.Lerp(startOffset, targetJumpOffset, ratio);
             yield return null;
         }
 
@@ -84,12 +101,15 @@ public class PlayerMove : MonoBehaviour
         {
             t += Time.deltaTime;
             float ratio = t / halfTime;
-            jumpOffset = Mathf.Lerp(jumpHeight, 0f, ratio);
+            jumpOffset = Mathf.Lerp(targetJumpOffset, 0f, ratio);
             yield return null;
         }
         jumpOffset = 0f;
         isJumping = false;
-        _anim.SetBool("IsJumping", false);
+        
+        jumpCount = 0;
+        _anim.SetBool("IsJumping", false);    
+        
     }
 
     void ChangeEdge(Edge nextEdge)
@@ -149,8 +169,10 @@ public class PlayerMove : MonoBehaviour
                 }
                 break;
         }
+        
+        basepos = pos;
 
-        pos += GetJumpDirection() * jumpOffset;
+        pos = basepos + GetJumpDirection() * jumpOffset;
         transform.position = pos;
     }
 
