@@ -15,8 +15,11 @@ public class PlayerMove : MonoBehaviour
     private float gravityPower = 20f;
     bool isGrounded;
     bool isJumping;
+    private int jumpCount;
+    private int maxJumpCount = 2;
     
     private SpriteRenderer _spriteRend;
+    Transform visual;
     Camera _cam;
     Animator _anim;
     float minX, minY, maxX, maxY;
@@ -25,6 +28,7 @@ public class PlayerMove : MonoBehaviour
     void Awake()
     {
         _spriteRend = GetComponent<SpriteRenderer>();
+        visual = transform;
         _cam = Camera.main;
         _anim = GetComponent<Animator>();
     }
@@ -69,14 +73,23 @@ public class PlayerMove : MonoBehaviour
         {
             Quaternion rot = Quaternion.FromToRotation(gravityDir, newGravityDir);
             velocity = rot * velocity;
+            gravityDir = newGravityDir;
+            transform.up = -gravityDir;
         }
-        
-        gravityDir = newGravityDir;
-        
+
+        // 지상에서는 중력 가속만 적용하지 않음
         if (isGrounded)
             return;
 
+        // 공중일 때만 중력 적용
         velocity += gravityDir * gravityPower * Time.deltaTime;
+        
+        float fallSpeed = Vector3.Dot(velocity, gravityDir);
+        if (fallSpeed > 0.1f)
+        {
+            _anim.SetBool("IsJumping", false);
+            _anim.SetBool("IsFalling", true);
+        }
     }
 
     void ApplyMovement()
@@ -85,11 +98,13 @@ public class PlayerMove : MonoBehaviour
         transform.position += edgeMove;
         
         transform.position += velocity * Time.deltaTime;
+
+        UpdateVisualFlip();
     }
 
     void HandleJumpInput()
     {
-        if (Input.GetKeyDown(KeyCode.Space) && isGrounded)
+        if (Input.GetKeyDown(KeyCode.Space) && jumpCount < maxJumpCount)
         {
             Jump();
         }
@@ -134,8 +149,11 @@ public class PlayerMove : MonoBehaviour
 
         if (!wasGrounded)
         {
+            jumpCount = 0;
             isJumping = false;
+
             _anim.SetBool("IsJumping", false);
+            _anim.SetBool("IsFalling", false);
         }
     }
 
@@ -163,8 +181,20 @@ public class PlayerMove : MonoBehaviour
         }
 
         transform.position = pos;
+        
+        UpdateVisualFlip();
 
-        UpdateVisualByEdge();
+        if (isGrounded)
+        {
+            isJumping = false;
+            _anim.SetBool("IsJumping", false);
+            _anim.SetBool("IsFalling", false);
+        }
+
+        // if (isJumping && !isGrounded)
+        // {
+        //     _anim.Play("Jump", 0 ,0f);
+        // }
     }
     Vector3 GetEdgeMoveDirection()
     {
@@ -246,39 +276,29 @@ public class PlayerMove : MonoBehaviour
     }
 
 
-    public void UpdateVisualByEdge()
-    {
-        float zRotation = 0f;
-        
-        switch (currentEdge)
-        { 
-            case Edge.Bottom:
-                zRotation = 0f;    
-                break;
-            
-            case Edge.Right:
-                zRotation = 90f;
-                break;  
-            
-            case Edge.Top:
-                zRotation = 180f;
-                break;
-            
-            case Edge.Left:
-                zRotation = 270f;
-                break;
-        }
-        transform.localRotation = Quaternion.Euler(0f, 0f, zRotation);
-    }
-
     void Jump()
     {
         isGrounded = false;
         isJumping = true;
         
+        Vector3  gravityVelocity = Vector3.Project(velocity, gravityDir);
+        velocity -= gravityVelocity;
+        
         velocity += -gravityDir * jumpPower;
         
+        jumpCount++;
+        
         _anim.SetBool("IsJumping", true);
+    }
+
+    void UpdateVisualFlip()
+    {
+        Vector3 moveDir = GetEdgeMoveDirection();
+
+        // 기준: 캐릭터 로컬 right가 진행 방향을 바라보도록
+        float dot = Vector3.Dot(visual.right, moveDir);
+
+        _spriteRend.flipX = dot < 0f;
     }
     
 }
