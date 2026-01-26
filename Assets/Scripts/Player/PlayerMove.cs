@@ -6,8 +6,8 @@ using UnityEngine;
 public class PlayerMove : MonoBehaviour
 {
     [SerializeField] public float edgeOffset = 0.3f;
-    [SerializeField] float cornerBlendDistance = 0.5f;
-    [SerializeField] public float jumpPower = 8f;
+    [SerializeField] float cornerBlendDistance = 0.2f;
+    [SerializeField] public float jumpPower = 6f;
     
     public float speed = 3f;
     Vector3 velocity; // 현재 이동 속도 (누적됨)
@@ -42,9 +42,22 @@ public class PlayerMove : MonoBehaviour
         minY = bottomLeft.y + edgeOffset;
         maxX = topRight.x - edgeOffset;
         maxY = topRight.y - edgeOffset;
-        
+
+        currentEdge = Edge.Bottom;
         gravityDir = Vector3.down;
+        
+        Vector3 startpos = transform.position;
+        startpos.x = (minX + maxX) * 0.5f;
+        startpos.y = minY;
+        transform.position = startpos;
+        
         velocity = Vector3.zero;
+        isGrounded = true;
+        isJumping = false;
+        jumpCount = 0;
+        
+        _anim.SetBool("IsJumping", false);
+        _anim.SetBool("IsFalling", false);
     }
 
     private enum Edge
@@ -58,11 +71,11 @@ public class PlayerMove : MonoBehaviour
     
     void Update()
     {
-        ResolveGrounded(); // 1. 바닥 판단
-        HandleJumpInput();
-        ApplyGravity(); // 2. 공중일 때만 중력
-        ApplyMovement(); // 3. 이동
-        CheckCornerAndChangeGravity();
+        HandleJumpInput(); // 점프입력
+        ApplyGravity(); // 중력처리
+        ApplyMovement(); // 이동적용
+        CheckCornerAndChangeGravity(); // Edge 전환
+        ResolveGrounded(); // 착지판단
     }
 
     void ApplyGravity()
@@ -130,31 +143,34 @@ public class PlayerMove : MonoBehaviour
 
     void ResolveGrounded()
     {
-        bool wasGrounded = isGrounded;
-        isGrounded = IsGrounded();
-        if (!isGrounded) return;
+        if (isJumping && Vector3.Dot(velocity, gravityDir) < 0f)
+            return;
         
+        isGrounded = IsGrounded();
+        if (!isGrounded)
+            return;
+
+        // 중력 방향 속도 제거
         Vector3 gravityVelocity = Vector3.Project(velocity, gravityDir);
         velocity -= gravityVelocity;
-        
+
+        // 위치를 edge에 고정
         Vector3 pos = transform.position;
         switch (currentEdge)
         {
             case Edge.Bottom: pos.y = minY; break;
-            case Edge.Right: pos.x = maxX;break;
-            case Edge.Top: pos.y = maxY; break;
-            case Edge.Left: pos.x = minX; break;
+            case Edge.Right:  pos.x = maxX; break;
+            case Edge.Top:    pos.y = maxY; break;
+            case Edge.Left:   pos.x = minX; break;
         }
         transform.position = pos;
 
-        if (!wasGrounded)
-        {
-            jumpCount = 0;
-            isJumping = false;
+        // 🔥 핵심: 착지 상태면 무조건 상태 정리
+        jumpCount = 0;
+        isJumping = false;
 
-            _anim.SetBool("IsJumping", false);
-            _anim.SetBool("IsFalling", false);
-        }
+        _anim.SetBool("IsJumping", false);
+        _anim.SetBool("IsFalling", false);
     }
 
     void ChangeEdge(Edge nextEdge)
@@ -183,13 +199,9 @@ public class PlayerMove : MonoBehaviour
         transform.position = pos;
         
         UpdateVisualFlip();
-
-        if (isGrounded)
-        {
-            isJumping = false;
-            _anim.SetBool("IsJumping", false);
-            _anim.SetBool("IsFalling", false);
-        }
+        ForceGroundAfterEdgeChange();
+        ResolveGrounded();
+        
 
         // if (isJumping && !isGrounded)
         // {
@@ -299,6 +311,16 @@ public class PlayerMove : MonoBehaviour
         float dot = Vector3.Dot(visual.right, moveDir);
 
         _spriteRend.flipX = dot < 0f;
+    }
+    
+    void ForceGroundAfterEdgeChange()
+    {
+
+        if (!isGrounded)
+            return;
+        
+        Vector3 gravityVelocity = Vector3.Project(velocity, gravityDir);
+        velocity -= gravityVelocity;
     }
     
 }
