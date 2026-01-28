@@ -12,7 +12,7 @@ public class Fireball : MonoBehaviour
     }
 
     [SerializeField] private float minSpeed = 2f;
-    [SerializeField] private float maxSpeed = 4f;
+    [SerializeField] private float maxSpeed = 3f;
 
     private Edge currentEdge;
 

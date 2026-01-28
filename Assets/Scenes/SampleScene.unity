@@ -134,6 +134,7 @@ GameObject:
   - component: {fileID: 194014644}
   - component: {fileID: 194014643}
   - component: {fileID: 194014646}
+  - component: {fileID: 194014647}
   m_Layer: 0
   m_Name: Ruuner
   m_TagString: Untagged
@@ -245,6 +246,29 @@ MonoBehaviour:
   cornerBlendDistance: 0.7
   jumpPower: 7
   speed: 3
+--- !u!136 &194014647
+CapsuleCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 194014642}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Radius: 0.28
+  m_Height: 0.68
+  m_Direction: 1
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!1 &513211851
 GameObject:
   m_ObjectHideFlags: 0

@@ -66,10 +66,16 @@ public class FireBallPool : MonoBehaviour
         
         float minX = cam.ViewportToWorldPoint(new Vector3(0, 0, z)).x;
         float groundY = cam.ViewportToWorldPoint(new Vector3(0, 0, z)).y
-        + player.edgeOffset - 0.2f;
+        + player.edgeOffset - 0.1f;
         
-        fb.transform.position = new Vector3(minX, groundY, 0f);
+        float groundY2 = cam.ViewportToWorldPoint(new Vector3(0, 0, z)).y
+            + player.edgeOffset + 0.4f;
+        
+        float spawnY = Random.value < 0.5f ? groundY : groundY2;
+        fb.transform.position = new  Vector3(minX, spawnY, 0f);
+        
         float minY = cam.ViewportToWorldPoint(new Vector3(0, 0, z)).y;
-        return groundY - minY;
+        return spawnY - minY;
+
     }
 }
