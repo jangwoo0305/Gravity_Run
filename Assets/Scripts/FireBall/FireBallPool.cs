@@ -6,8 +6,9 @@ public class FireBallPool : MonoBehaviour
 {
     [SerializeField] private Fireball fireballPrefab;
     [SerializeField] private int poolSize = 20;
-    [SerializeField] private float minspawnInterval = 1f;
-    [SerializeField] private float maxspawnInterval = 5f;
+    [SerializeField] private float spawnInterval = 5f;
+    [SerializeField] PlayerMove player;
+    
     
     private List<Fireball> pool = new List<Fireball>();
 
@@ -27,8 +28,7 @@ public class FireBallPool : MonoBehaviour
     {
         while (true)
         {
-            float waitTime = Random.Range(minspawnInterval, maxspawnInterval);
-            yield return new WaitForSeconds(waitTime);
+            yield return new WaitForSeconds(spawnInterval);
             SpawnFireball();
         }
     }
@@ -38,8 +38,8 @@ public class FireBallPool : MonoBehaviour
         Fireball fb = GetAvailableFireball();
         if (fb == null) return;
 
-        SetSpawnPosition(fb);
-        fb.Init();
+        float heightLevel = SetSpawnPosition(fb);
+        fb.Init(heightLevel);
         fb.gameObject.SetActive(true);
     }
 
@@ -53,14 +53,23 @@ public class FireBallPool : MonoBehaviour
         return null;
     }
 
-    void SetSpawnPosition(Fireball fb)
+    float SetSpawnPosition(Fireball fb)
     {
+        if (player == null)
+        {
+            Debug.LogError($"FireBallPool.SetSpawnPosition: player is null");
+            return 0f;
+        }
+        
         Camera cam = Camera.main;
         float z = Mathf.Abs(cam.transform.position.z);
         
         float minX = cam.ViewportToWorldPoint(new Vector3(0, 0, z)).x;
-        float centerY = cam.ViewportToWorldPoint(new Vector3(0, 0.5f, z)).y;
+        float groundY = cam.ViewportToWorldPoint(new Vector3(0, 0, z)).y
+        + player.edgeOffset - 0.2f;
         
-        fb.transform.position = new Vector3(minX, centerY, 0f);
+        fb.transform.position = new Vector3(minX, groundY, 0f);
+        float minY = cam.ViewportToWorldPoint(new Vector3(0, 0, z)).y;
+        return groundY - minY;
     }
 }

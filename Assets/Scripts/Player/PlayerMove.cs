@@ -323,4 +323,11 @@ public class PlayerMove : MonoBehaviour
         velocity -= gravityVelocity;
     }
     
+    public Vector3 GravityDir => gravityDir;
+    public float GravityPower => gravityPower;
+
+    public float GetMaxJumpHeight()
+    {
+        return (jumpPower * jumpPower) / (2f * GravityPower);
+    }
 }

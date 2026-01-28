@@ -277,6 +277,7 @@ MonoBehaviour:
   fireballPrefab: {fileID: 6204623622705755430, guid: f2499d7675b5840869242da50d31861c, type: 3}
   poolSize: 20
   spawnInterval: 5
+  player: {fileID: 194014646}
 --- !u!4 &513211853
 Transform:
   m_ObjectHideFlags: 0
