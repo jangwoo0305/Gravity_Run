@@ -135,9 +135,9 @@ GameObject:
   - component: {fileID: 194014643}
   - component: {fileID: 194014646}
   - component: {fileID: 194014647}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Ruuner
-  m_TagString: Untagged
+  m_TagString: Player
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -246,13 +246,15 @@ MonoBehaviour:
   cornerBlendDistance: 0.7
   jumpPower: 7
   speed: 3
---- !u!136 &194014647
-CapsuleCollider:
+--- !u!70 &194014647
+CapsuleCollider2D:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 194014642}
+  m_Enabled: 1
+  m_Density: 1
   m_Material: {fileID: 0}
   m_IncludeLayers:
     serializedVersion: 2
@@ -261,14 +263,24 @@ CapsuleCollider:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
+  m_ForceSendLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ForceReceiveLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ContactCaptureLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_CallbackLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
   m_IsTrigger: 1
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 2
-  m_Radius: 0.28
-  m_Height: 0.68
-  m_Direction: 1
-  m_Center: {x: 0, y: 0, z: 0}
+  m_UsedByEffector: 0
+  m_UsedByComposite: 0
+  m_Offset: {x: 0.033916086, y: -0.023741374}
+  m_Size: {x: 0.52126235, y: 0.6501431}
+  m_Direction: 0
 --- !u!1 &513211851
 GameObject:
   m_ObjectHideFlags: 0

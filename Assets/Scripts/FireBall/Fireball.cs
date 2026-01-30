@@ -3,6 +3,8 @@ using Random = UnityEngine.Random;
 
 public class Fireball : MonoBehaviour
 {
+    private Rigidbody2D rb;
+
     enum Edge
     {
         Bottom,
@@ -15,17 +17,21 @@ public class Fireball : MonoBehaviour
     [SerializeField] private float maxSpeed = 3f;
 
     private Edge currentEdge;
-
     private float speed;
-    private float heightLevel;     // 🔥 fireball 고유 높이
+    private float heightLevel;
 
     private float minX, maxX, minY, maxY;
-    private int edgeChangeCount;
 
+    private int edgeChangeCount;
     private const int EDGES_PER_LAP = 4;
     private const int MAX_LAP = 1;
 
-    // 🔹 Pool에서 호출
+    private void Awake()
+    {
+        rb = GetComponent<Rigidbody2D>();
+    }
+
+    // 🔹 Pool에서 호출 (생성 시 1회)
     public void Init(float height)
     {
         Camera cam = Camera.main;
@@ -42,20 +48,31 @@ public class Fireball : MonoBehaviour
         edgeChangeCount = 0;
         currentEdge = Edge.Left;
 
-        ApplyPositionByEdge();
-        UpdateRotation();
+        // 🔥 생성 시에는 즉시 반영
+        ApplyPosition(true);
+        ApplyRotation(true);
     }
 
-    void Update()
+    private void FixedUpdate()
     {
         MoveClockwise();
         CheckEdgeChange();
     }
+    
+    private void OnEnable()
+    {
+        // 풀에서 꺼내질 때 항상 현재 Edge 기준으로 다시 적용
+        ApplyPosition(true);
+        ApplyRotation(true);
+    }
 
+    // =====================
+    // 이동
+    // =====================
     void MoveClockwise()
     {
-        Vector3 pos = transform.position;
-        float delta = speed * Time.deltaTime;
+        Vector2 pos = rb.position;
+        float delta = speed * Time.fixedDeltaTime;
 
         switch (currentEdge)
         {
@@ -80,33 +97,32 @@ public class Fireball : MonoBehaviour
                 break;
         }
 
-        transform.position = pos;
+        rb.MovePosition(pos);
     }
 
+    // =====================
+    // Edge 변경 체크
+    // =====================
     void CheckEdgeChange()
     {
-        Vector3 pos = transform.position;
+        Vector2 pos = rb.position;
 
         switch (currentEdge)
         {
             case Edge.Bottom:
-                if (pos.x <= minX)
-                    ChangeEdge(Edge.Left);
+                if (pos.x <= minX) ChangeEdge(Edge.Left);
                 break;
 
             case Edge.Right:
-                if (pos.y <= minY)
-                    ChangeEdge(Edge.Bottom);
+                if (pos.y <= minY) ChangeEdge(Edge.Bottom);
                 break;
 
             case Edge.Top:
-                if (pos.x >= maxX)
-                    ChangeEdge(Edge.Right);
+                if (pos.x >= maxX) ChangeEdge(Edge.Right);
                 break;
 
             case Edge.Left:
-                if (pos.y >= maxY)
-                    ChangeEdge(Edge.Top);
+                if (pos.y >= maxY) ChangeEdge(Edge.Top);
                 break;
         }
     }
@@ -122,49 +138,67 @@ public class Fireball : MonoBehaviour
         }
 
         currentEdge = next;
-        ApplyPositionByEdge();
-        UpdateRotation();
+
+        // 🔹 런타임에서는 물리 기준 이동
+        ApplyPosition(false);
+        ApplyRotation(false);
     }
 
-    // 🔥 edge에 따라 높이를 올바른 축에 투영
-    void ApplyPositionByEdge()
+    // =====================
+    // Edge 기준 위치 보정
+    // immediate = true  : Init / OnEnable (즉시 반영)
+    // immediate = false : Runtime (물리 프레임 반영)
+    // =====================
+    void ApplyPosition(bool immediate)
     {
-        Vector3 pos = transform.position;
+        Vector2 pos = rb.position;
 
         switch (currentEdge)
         {
-            case Edge.Bottom:
-                pos.y = minY + heightLevel;
-                break;
-
-            case Edge.Right:
-                pos.x = maxX - heightLevel;
-                break;
-
-            case Edge.Top:
-                pos.y = maxY - heightLevel;
-                break;
-
-            case Edge.Left:
-                pos.x = minX + heightLevel;
-                break;
+            case Edge.Bottom: pos.y = minY + heightLevel; break;
+            case Edge.Right:  pos.x = maxX - heightLevel; break;
+            case Edge.Top:    pos.y = maxY - heightLevel; break;
+            case Edge.Left:   pos.x = minX + heightLevel; break;
         }
 
-        transform.position = pos;
+        if (immediate)
+            rb.position = pos;       // 즉시 반영 (첫 프레임 보정)
+        else
+            rb.MovePosition(pos);    // 물리 프레임 기준 이동
     }
 
-    void UpdateRotation()
+    // =====================
+    // Edge 기준 스프라이트 회전
+    // immediate = true  : Init / OnEnable
+    // immediate = false : Edge 변경 시
+    // =====================
+    void ApplyRotation(bool immediate)
     {
-        float angle = 0f;
+        float angle = GetEdgeAngle();
 
-        switch (currentEdge)
+        if (immediate)
+            rb.rotation = angle;     // 즉시 회전
+        else
+            rb.MoveRotation(angle);  // 물리 프레임 회전
+    }
+
+    float GetEdgeAngle()
+    {
+        return currentEdge switch
         {
-            case Edge.Bottom: angle = 180f; break;
-            case Edge.Right:  angle = -90f; break;
-            case Edge.Top:    angle = 0f; break;
-            case Edge.Left:   angle = 90f; break;
-        }
+            Edge.Bottom => 180f,
+            Edge.Right  => -90f,
+            Edge.Top    => 0f,
+            Edge.Left   => 90f,
+            _ => 0f
+        };
+    }
 
-        transform.rotation = Quaternion.Euler(0, 0, angle);
+    private void OnTriggerEnter2D(Collider2D other)
+    {
+        if (other.CompareTag("Player"))
+        {
+            Debug.Log("FireBall hit Player");
+        }
     }
 }
