@@ -24,6 +24,7 @@ public class PlayerMove : MonoBehaviour
     Animator _anim;
     float minX, minY, maxX, maxY;
     
+    public Edge CurrentEdge { get; private set; } = Edge.Bottom;
 
     void Awake()
     {
@@ -43,7 +44,7 @@ public class PlayerMove : MonoBehaviour
         maxX = topRight.x - edgeOffset;
         maxY = topRight.y - edgeOffset;
 
-        currentEdge = Edge.Bottom;
+        CurrentEdge = Edge.Bottom;
         gravityDir = Vector3.down;
         
         Vector3 startpos = transform.position;
@@ -60,14 +61,6 @@ public class PlayerMove : MonoBehaviour
         _anim.SetBool("IsFalling", false);
     }
 
-    private enum Edge
-    {
-        Bottom,
-        Right,
-        Top,
-        Left
-    }
-    private Edge currentEdge = Edge.Bottom;
     
     void Update()
     {
@@ -127,7 +120,7 @@ public class PlayerMove : MonoBehaviour
     {
         Vector3 pos = transform.position;
 
-        switch (currentEdge)
+        switch (CurrentEdge)
         {
             case Edge.Bottom:
                 return pos.y <= minY;
@@ -156,7 +149,7 @@ public class PlayerMove : MonoBehaviour
 
         // 위치를 edge에 고정
         Vector3 pos = transform.position;
-        switch (currentEdge)
+        switch (CurrentEdge)
         {
             case Edge.Bottom: pos.y = minY; break;
             case Edge.Right:  pos.x = maxX; break;
@@ -175,12 +168,12 @@ public class PlayerMove : MonoBehaviour
 
     void ChangeEdge(Edge nextEdge)
     {
-        currentEdge = nextEdge;
+        CurrentEdge = nextEdge;
 
         // 위치 강제 고정
         Vector3 pos = transform.position;
 
-        switch (currentEdge)
+        switch (CurrentEdge)
         {
             case Edge.Bottom:
                 pos.y = minY;
@@ -210,7 +203,7 @@ public class PlayerMove : MonoBehaviour
     }
     Vector3 GetEdgeMoveDirection()
     {
-        switch (currentEdge)
+        switch (CurrentEdge)
         {
             case Edge.Bottom: 
                 return Vector3.right;
@@ -228,19 +221,19 @@ public class PlayerMove : MonoBehaviour
     {
         Vector3 pos = transform.position;
 
-        if (currentEdge == Edge.Bottom && pos.x >= maxX)
+        if (CurrentEdge == Edge.Bottom && pos.x >= maxX)
         {
             ChangeEdge(Edge.Right);
         }
-        else if (currentEdge == Edge.Right && pos.y >= maxY)
+        else if (CurrentEdge == Edge.Right && pos.y >= maxY)
         {
             ChangeEdge(Edge.Top);
         }
-        else if (currentEdge == Edge.Top && pos.x <= minX)
+        else if (CurrentEdge == Edge.Top && pos.x <= minX)
         {
             ChangeEdge(Edge.Left);
         }
-        else if (currentEdge == Edge.Left && pos.y <= minY)
+        else if (CurrentEdge == Edge.Left && pos.y <= minY)
         {
             ChangeEdge(Edge.Bottom);
         }
@@ -250,7 +243,7 @@ public class PlayerMove : MonoBehaviour
     {
         Vector3 pos = transform.position;
 
-        switch (currentEdge)
+        switch (CurrentEdge)
         {
             case Edge.Bottom:
                 if (pos.x > maxX - cornerBlendDistance)

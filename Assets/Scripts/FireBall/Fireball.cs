@@ -5,21 +5,21 @@ public class Fireball : MonoBehaviour
 {
     private Rigidbody2D rb;
 
-    enum Edge
-    {
-        Bottom,
-        Right,
-        Top,
-        Left
-    }
-
     [SerializeField] private float minSpeed = 2f;
     [SerializeField] private float maxSpeed = 3f;
-
+    [SerializeField] private float waveAmplitude = 0.3f;
+    [SerializeField] private float waveFrequency = 4f;
+    [SerializeField] private bool useWaveByDefault = true;
+    [Range(0f,1f)]
+    [SerializeField] private float waveChance = 0.6f;
+    
     private Edge currentEdge;
     private float speed;
     private float heightLevel;
 
+    private float waveTime;
+    private bool useWave;
+    
     private float minX, maxX, minY, maxY;
 
     private int edgeChangeCount;
@@ -32,7 +32,7 @@ public class Fireball : MonoBehaviour
     }
 
     // 🔹 Pool에서 호출 (생성 시 1회)
-    public void Init(float height)
+    public void Init(float height, Edge startEdge)
     {
         Camera cam = Camera.main;
         float z = Mathf.Abs(cam.transform.position.z);
@@ -46,25 +46,29 @@ public class Fireball : MonoBehaviour
         speed = Random.Range(minSpeed, maxSpeed);
 
         edgeChangeCount = 0;
-        currentEdge = Edge.Left;
+        currentEdge = startEdge;
 
         // 🔥 생성 시에는 즉시 반영
         ApplyPosition(true);
         ApplyRotation(true);
+
+        waveTime = 0f;
+        
+        if (useWaveByDefault)
+            useWave = Random.value < waveChance;
+        else
+        {
+            useWave = false;
+        }
     }
 
     private void FixedUpdate()
     {
+        waveTime += Time.fixedDeltaTime;
         MoveClockwise();
         CheckEdgeChange();
     }
     
-    private void OnEnable()
-    {
-        // 풀에서 꺼내질 때 항상 현재 Edge 기준으로 다시 적용
-        ApplyPosition(true);
-        ApplyRotation(true);
-    }
 
     // =====================
     // 이동
@@ -73,27 +77,32 @@ public class Fireball : MonoBehaviour
     {
         Vector2 pos = rb.position;
         float delta = speed * Time.fixedDeltaTime;
+        float waveOffset = useWave ? Mathf.Sin(waveTime * waveFrequency) * waveAmplitude : 0f;
 
         switch (currentEdge)
         {
+            // Bottom: move RIGHT
             case Edge.Bottom:
-                pos.x -= delta;
-                pos.y = minY + heightLevel;
-                break;
-
-            case Edge.Right:
-                pos.y -= delta;
-                pos.x = maxX - heightLevel;
-                break;
-
-            case Edge.Top:
                 pos.x += delta;
-                pos.y = maxY - heightLevel;
+                pos.y = minY + waveOffset;
                 break;
 
-            case Edge.Left:
+            // Right: move UP
+            case Edge.Right:
                 pos.y += delta;
-                pos.x = minX + heightLevel;
+                pos.x = maxX + waveOffset;
+                break;
+
+            // Top: move LEFT
+            case Edge.Top:
+                pos.x -= delta;
+                pos.y = maxY + waveOffset;
+                break;
+
+            // Left: move DOWN
+            case Edge.Left:
+                pos.y -= delta;
+                pos.x = minX + waveOffset;
                 break;
         }
 
@@ -101,28 +110,37 @@ public class Fireball : MonoBehaviour
     }
 
     // =====================
-    // Edge 변경 체크
+    // Edge 변경 체크 (Clockwise)
     // =====================
     void CheckEdgeChange()
     {
         Vector2 pos = rb.position;
+        float epsilon = 0.01f;
 
         switch (currentEdge)
         {
+            // Bottom → Right (when reaching maxX)
             case Edge.Bottom:
-                if (pos.x <= minX) ChangeEdge(Edge.Left);
+                if (pos.x > maxX + epsilon)
+                    ChangeEdge(Edge.Right);
                 break;
 
+            // Right → Top (when reaching maxY)
             case Edge.Right:
-                if (pos.y <= minY) ChangeEdge(Edge.Bottom);
+                if (pos.y > maxY + epsilon)
+                    ChangeEdge(Edge.Top);
                 break;
 
+            // Top → Left (when reaching minX)
             case Edge.Top:
-                if (pos.x >= maxX) ChangeEdge(Edge.Right);
+                if (pos.x < minX - epsilon)
+                    ChangeEdge(Edge.Left);
                 break;
 
+            // Left → Bottom (when reaching minY)
             case Edge.Left:
-                if (pos.y >= maxY) ChangeEdge(Edge.Top);
+                if (pos.y < minY - epsilon)
+                    ChangeEdge(Edge.Bottom);
                 break;
         }
     }
@@ -153,18 +171,30 @@ public class Fireball : MonoBehaviour
     {
         Vector2 pos = rb.position;
 
+        // 🔥 Spawn exactly at screen corners based on currentEdge
         switch (currentEdge)
         {
-            case Edge.Bottom: pos.y = minY + heightLevel; break;
-            case Edge.Right:  pos.x = maxX - heightLevel; break;
-            case Edge.Top:    pos.y = maxY - heightLevel; break;
-            case Edge.Left:   pos.x = minX + heightLevel; break;
+            case Edge.Bottom:
+                pos = new Vector2(minX, minY);
+                break;
+
+            case Edge.Right:
+                pos = new Vector2(maxX, minY);
+                break;
+
+            case Edge.Top:
+                pos = new Vector2(maxX, maxY);
+                break;
+
+            case Edge.Left:
+                pos = new Vector2(minX, maxY);
+                break;
         }
 
         if (immediate)
-            rb.position = pos;       // 즉시 반영 (첫 프레임 보정)
+            rb.position = pos;
         else
-            rb.MovePosition(pos);    // 물리 프레임 기준 이동
+            rb.MovePosition(pos);
     }
 
     // =====================

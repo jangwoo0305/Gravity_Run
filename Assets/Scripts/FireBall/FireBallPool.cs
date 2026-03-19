@@ -38,9 +38,18 @@ public class FireBallPool : MonoBehaviour
         Fireball fb = GetAvailableFireball();
         if (fb == null) return;
 
-        float heightLevel = SetSpawnPosition(fb);
-        fb.Init(heightLevel);
+        if (player == null)
+        {
+            Debug.LogError("FireBallPool: player is null");
+            return;
+        }
+        // Spawn from the exact corner of the player's current edge
+        float height = 0f;
+        Edge spawnEdge = player.CurrentEdge;
+
+        // Activate first (in case OnEnable resets state)
         fb.gameObject.SetActive(true);
+        fb.Init(height, spawnEdge);
     }
 
     Fireball GetAvailableFireball()
@@ -51,31 +60,5 @@ public class FireBallPool : MonoBehaviour
                 return pool[i];
         }
         return null;
-    }
-
-    float SetSpawnPosition(Fireball fb)
-    {
-        if (player == null)
-        {
-            Debug.LogError($"FireBallPool.SetSpawnPosition: player is null");
-            return 0f;
-        }
-        
-        Camera cam = Camera.main;
-        float z = Mathf.Abs(cam.transform.position.z);
-        
-        float minX = cam.ViewportToWorldPoint(new Vector3(0, 0, z)).x;
-        float groundY = cam.ViewportToWorldPoint(new Vector3(0, 0, z)).y
-        + player.edgeOffset - 0.1f;
-        
-        float groundY2 = cam.ViewportToWorldPoint(new Vector3(0, 0, z)).y
-            + player.edgeOffset + 0.4f;
-        
-        float spawnY = Random.value < 0.5f ? groundY : groundY2;
-        fb.transform.position = new  Vector3(minX, spawnY, 0f);
-        
-        float minY = cam.ViewportToWorldPoint(new Vector3(0, 0, z)).y;
-        return spawnY - minY;
-
     }
 }
