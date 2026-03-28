@@ -1,6 +1,3 @@
-using System;
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 public class PlayerMove : MonoBehaviour
@@ -19,9 +16,8 @@ public class PlayerMove : MonoBehaviour
     private int maxJumpCount = 2;
     
     private SpriteRenderer _spriteRend;
-    Transform visual;
-    Camera _cam;
-    Animator _anim;
+    private Camera _cam;
+    private Animator _anim;
     float minX, minY, maxX, maxY;
     
     public Edge CurrentEdge { get; private set; } = Edge.Bottom;
@@ -29,7 +25,6 @@ public class PlayerMove : MonoBehaviour
     void Awake()
     {
         _spriteRend = GetComponent<SpriteRenderer>();
-        visual = transform;
         _cam = Camera.main;
         _anim = GetComponent<Animator>();
     }
@@ -301,7 +296,7 @@ public class PlayerMove : MonoBehaviour
         Vector3 moveDir = GetEdgeMoveDirection();
 
         // 기준: 캐릭터 로컬 right가 진행 방향을 바라보도록
-        float dot = Vector3.Dot(visual.right, moveDir);
+        float dot = Vector3.Dot(transform.right, moveDir);
 
         _spriteRend.flipX = dot < 0f;
     }

@@ -12,10 +12,10 @@ public class Fireball : MonoBehaviour
     [SerializeField] private bool useWaveByDefault = true;
     [Range(0f,1f)]
     [SerializeField] private float waveChance = 0.6f;
+    [SerializeField] private float edgeOffset = 0.3f; // 기본값 (풀에서 플레이어 값으로 덮어쓸 수 있음)
     
     private Edge currentEdge;
     private float speed;
-    private float heightLevel;
 
     private float waveTime;
     private bool useWave;
@@ -32,25 +32,36 @@ public class Fireball : MonoBehaviour
     }
 
     // 🔹 Pool에서 호출 (생성 시 1회)
-    public void Init(float height, Edge startEdge)
+    public void Init(Vector2 spawnWorldPos, Edge startEdge, float edgeOffsetWorld)
     {
         Camera cam = Camera.main;
-        float z = Mathf.Abs(cam.transform.position.z);
+        if (cam == null)
+            return;
 
-        minX = cam.ViewportToWorldPoint(new Vector3(0, 0, z)).x;
-        maxX = cam.ViewportToWorldPoint(new Vector3(1, 0, z)).x;
-        minY = cam.ViewportToWorldPoint(new Vector3(0, 0, z)).y;
-        maxY = cam.ViewportToWorldPoint(new Vector3(0, 1, z)).y;
+        float z = cam.nearClipPlane;
 
-        heightLevel = height;
+        edgeOffset = edgeOffsetWorld;
+
+        Vector3 bottomLeft = cam.ViewportToWorldPoint(new Vector3(0, 0, z));
+        Vector3 topRight = cam.ViewportToWorldPoint(new Vector3(1, 1, z));
+
+        minX = bottomLeft.x + edgeOffset;
+        maxX = topRight.x - edgeOffset;
+        minY = bottomLeft.y + edgeOffset;
+        maxY = topRight.y - edgeOffset;
+
         speed = Random.Range(minSpeed, maxSpeed);
 
         edgeChangeCount = 0;
         currentEdge = startEdge;
 
-        // 🔥 생성 시에는 즉시 반영
-        ApplyPosition(true);
-        ApplyRotation(true);
+        float angle = GetEdgeAngle();
+        Vector2 clampedSpawn = ClampToEdge(spawnWorldPos, startEdge);
+
+        // 풀링으로 Enable/Disable 될 때 이전 포즈가 1프레임 보이지 않도록 Transform/Rigidbody2D 둘 다 세팅
+        transform.SetPositionAndRotation(clampedSpawn, Quaternion.Euler(0f, 0f, angle));
+        rb.position = clampedSpawn;
+        rb.rotation = angle;
 
         waveTime = 0f;
         
@@ -64,45 +75,47 @@ public class Fireball : MonoBehaviour
 
     private void FixedUpdate()
     {
-        waveTime += Time.fixedDeltaTime;
-        MoveClockwise();
+        MoveCounterClockwise();
         CheckEdgeChange();
+        waveTime += Time.fixedDeltaTime;
     }
     
 
     // =====================
     // 이동
     // =====================
-    void MoveClockwise()
+    void MoveCounterClockwise()
     {
         Vector2 pos = rb.position;
         float delta = speed * Time.fixedDeltaTime;
-        float waveOffset = useWave ? Mathf.Sin(waveTime * waveFrequency) * waveAmplitude : 0f;
+        // 웨이브 오프셋은 항상 화면 안쪽 방향으로만 적용해서 화면 밖으로 나가지 않게 함
+        // 범위: [0, waveAmplitude]
+        float waveOffset = useWave ? Mathf.Abs(Mathf.Sin(waveTime * waveFrequency)) * waveAmplitude : 0f;
 
         switch (currentEdge)
         {
-            // Bottom: move RIGHT
+            // Bottom: 왼쪽으로 이동 (플레이어 진행 방향과 반대)
             case Edge.Bottom:
-                pos.x += delta;
-                pos.y = minY + waveOffset;
-                break;
-
-            // Right: move UP
-            case Edge.Right:
-                pos.y += delta;
-                pos.x = maxX + waveOffset;
-                break;
-
-            // Top: move LEFT
-            case Edge.Top:
                 pos.x -= delta;
-                pos.y = maxY + waveOffset;
+                pos.y = minY + waveOffset; // 안쪽 방향은 +Y
                 break;
 
-            // Left: move DOWN
-            case Edge.Left:
+            // Right: 아래로 이동 (플레이어 진행 방향과 반대)
+            case Edge.Right:
                 pos.y -= delta;
-                pos.x = minX + waveOffset;
+                pos.x = maxX - waveOffset; // 안쪽 방향은 -X
+                break;
+
+            // Top: 오른쪽으로 이동 (플레이어 진행 방향과 반대)
+            case Edge.Top:
+                pos.x += delta;
+                pos.y = maxY - waveOffset; // 안쪽 방향은 -Y
+                break;
+
+            // Left: 위로 이동 (플레이어 진행 방향과 반대)
+            case Edge.Left:
+                pos.y += delta;
+                pos.x = minX + waveOffset; // 안쪽 방향은 +X
                 break;
         }
 
@@ -110,7 +123,7 @@ public class Fireball : MonoBehaviour
     }
 
     // =====================
-    // Edge 변경 체크 (Clockwise)
+    // Edge 변경 체크 (반시계 방향)
     // =====================
     void CheckEdgeChange()
     {
@@ -119,33 +132,45 @@ public class Fireball : MonoBehaviour
 
         switch (currentEdge)
         {
-            // Bottom → Right (when reaching maxX)
+            // Bottom → Left (minX에 도달하면)
             case Edge.Bottom:
-                if (pos.x > maxX + epsilon)
-                    ChangeEdge(Edge.Right);
+                if (pos.x < minX + epsilon)
+                {
+                    ChangeEdge(Edge.Left, new Vector2(minX, minY));
+                    return;
+                }
                 break;
 
-            // Right → Top (when reaching maxY)
-            case Edge.Right:
-                if (pos.y > maxY + epsilon)
-                    ChangeEdge(Edge.Top);
-                break;
-
-            // Top → Left (when reaching minX)
-            case Edge.Top:
-                if (pos.x < minX - epsilon)
-                    ChangeEdge(Edge.Left);
-                break;
-
-            // Left → Bottom (when reaching minY)
+            // Left → Top (maxY에 도달하면)
             case Edge.Left:
-                if (pos.y < minY - epsilon)
-                    ChangeEdge(Edge.Bottom);
+                if (pos.y > maxY - epsilon)
+                {
+                    ChangeEdge(Edge.Top, new Vector2(minX, maxY));
+                    return;
+                }
+                break;
+
+            // Top → Right (maxX에 도달하면)
+            case Edge.Top:
+                if (pos.x > maxX - epsilon)
+                {
+                    ChangeEdge(Edge.Right, new Vector2(maxX, maxY));
+                    return;
+                }
+                break;
+
+            // Right → Bottom (minY에 도달하면)
+            case Edge.Right:
+                if (pos.y < minY + epsilon)
+                {
+                    ChangeEdge(Edge.Bottom, new Vector2(maxX, minY));
+                    return;
+                }
                 break;
         }
     }
 
-    void ChangeEdge(Edge next)
+    void ChangeEdge(Edge next, Vector2 cornerPos)
     {
         edgeChangeCount++;
 
@@ -157,59 +182,24 @@ public class Fireball : MonoBehaviour
 
         currentEdge = next;
 
-        // 🔹 런타임에서는 물리 기준 이동
-        ApplyPosition(false);
-        ApplyRotation(false);
+        // 코너로 1회 스냅해서 전환을 깔끔하게 만든 뒤, 다음 Edge에서 계속 이동
+        rb.position = cornerPos;
+        rb.rotation = GetEdgeAngle();
     }
 
-    // =====================
-    // Edge 기준 위치 보정
-    // immediate = true  : Init / OnEnable (즉시 반영)
-    // immediate = false : Runtime (물리 프레임 반영)
-    // =====================
-    void ApplyPosition(bool immediate)
+    Vector2 ClampToEdge(Vector2 worldPos, Edge edge)
     {
-        Vector2 pos = rb.position;
+        float clampedX = Mathf.Clamp(worldPos.x, minX, maxX);
+        float clampedY = Mathf.Clamp(worldPos.y, minY, maxY);
 
-        // 🔥 Spawn exactly at screen corners based on currentEdge
-        switch (currentEdge)
+        return edge switch
         {
-            case Edge.Bottom:
-                pos = new Vector2(minX, minY);
-                break;
-
-            case Edge.Right:
-                pos = new Vector2(maxX, minY);
-                break;
-
-            case Edge.Top:
-                pos = new Vector2(maxX, maxY);
-                break;
-
-            case Edge.Left:
-                pos = new Vector2(minX, maxY);
-                break;
-        }
-
-        if (immediate)
-            rb.position = pos;
-        else
-            rb.MovePosition(pos);
-    }
-
-    // =====================
-    // Edge 기준 스프라이트 회전
-    // immediate = true  : Init / OnEnable
-    // immediate = false : Edge 변경 시
-    // =====================
-    void ApplyRotation(bool immediate)
-    {
-        float angle = GetEdgeAngle();
-
-        if (immediate)
-            rb.rotation = angle;     // 즉시 회전
-        else
-            rb.MoveRotation(angle);  // 물리 프레임 회전
+            Edge.Bottom => new Vector2(clampedX, minY),
+            Edge.Right => new Vector2(maxX, clampedY),
+            Edge.Top => new Vector2(clampedX, maxY),
+            Edge.Left => new Vector2(minX, clampedY),
+            _ => new Vector2(clampedX, clampedY)
+        };
     }
 
     float GetEdgeAngle()
