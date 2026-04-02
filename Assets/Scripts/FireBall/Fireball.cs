@@ -13,6 +13,11 @@ public class Fireball : MonoBehaviour
     [Range(0f,1f)]
     [SerializeField] private float waveChance = 0.6f;
     [SerializeField] private float edgeOffset = 0.3f; // 기본값 (풀에서 플레이어 값으로 덮어쓸 수 있음)
+    [Header("Corner Blend")]
+    [Min(0f)]
+    [SerializeField] private float cornerBlendDistance = 0.25f; // 코너 근처에서 다음 Edge 각도로 서서히 보간
+    [Min(0.01f)]
+    [SerializeField] private float rotationLerpSpeed = 14f; // 높을수록 빨리 따라감
     
     private Edge currentEdge;
     private float speed;
@@ -20,7 +25,8 @@ public class Fireball : MonoBehaviour
     private float waveTime;
     private bool useWave;
     
-    private float minX, maxX, minY, maxY;
+    private ScreenEdgeBounds bounds;
+    private float targetAngle;
 
     private int edgeChangeCount;
     private const int EDGES_PER_LAP = 4;
@@ -31,6 +37,7 @@ public class Fireball : MonoBehaviour
         rb = GetComponent<Rigidbody2D>();
     }
 
+    // fb.Init(spawnPos, spawnEdge, player.edgeOffset);
     // 🔹 Pool에서 호출 (생성 시 1회)
     public void Init(Vector2 spawnWorldPos, Edge startEdge, float edgeOffsetWorld)
     {
@@ -38,24 +45,16 @@ public class Fireball : MonoBehaviour
         if (cam == null)
             return;
 
-        float z = cam.nearClipPlane;
-
         edgeOffset = edgeOffsetWorld;
-
-        Vector3 bottomLeft = cam.ViewportToWorldPoint(new Vector3(0, 0, z));
-        Vector3 topRight = cam.ViewportToWorldPoint(new Vector3(1, 1, z));
-
-        minX = bottomLeft.x + edgeOffset;
-        maxX = topRight.x - edgeOffset;
-        minY = bottomLeft.y + edgeOffset;
-        maxY = topRight.y - edgeOffset;
+        bounds = ScreenEdgeBounds.FromCamera(cam, edgeOffset);
 
         speed = Random.Range(minSpeed, maxSpeed);
 
         edgeChangeCount = 0;
         currentEdge = startEdge;
 
-        float angle = GetEdgeAngle();
+        float angle = EdgeMath.GetAngleForCounterClockwiseMotion(currentEdge);
+        targetAngle = angle;
         Vector2 clampedSpawn = ClampToEdge(spawnWorldPos, startEdge);
 
         // 풀링으로 Enable/Disable 될 때 이전 포즈가 1프레임 보이지 않도록 Transform/Rigidbody2D 둘 다 세팅
@@ -76,6 +75,7 @@ public class Fireball : MonoBehaviour
     private void FixedUpdate()
     {
         MoveCounterClockwise();
+        UpdateCornerBlendedRotation();
         CheckEdgeChange();
         waveTime += Time.fixedDeltaTime;
     }
@@ -97,25 +97,25 @@ public class Fireball : MonoBehaviour
             // Bottom: 왼쪽으로 이동 (플레이어 진행 방향과 반대)
             case Edge.Bottom:
                 pos.x -= delta;
-                pos.y = minY + waveOffset; // 안쪽 방향은 +Y
+                pos.y = bounds.MinY + waveOffset; // 안쪽 방향은 +Y
                 break;
 
             // Right: 아래로 이동 (플레이어 진행 방향과 반대)
             case Edge.Right:
                 pos.y -= delta;
-                pos.x = maxX - waveOffset; // 안쪽 방향은 -X
+                pos.x = bounds.MaxX - waveOffset; // 안쪽 방향은 -X
                 break;
 
             // Top: 오른쪽으로 이동 (플레이어 진행 방향과 반대)
             case Edge.Top:
                 pos.x += delta;
-                pos.y = maxY - waveOffset; // 안쪽 방향은 -Y
+                pos.y = bounds.MaxY - waveOffset; // 안쪽 방향은 -Y
                 break;
 
             // Left: 위로 이동 (플레이어 진행 방향과 반대)
             case Edge.Left:
                 pos.y += delta;
-                pos.x = minX + waveOffset; // 안쪽 방향은 +X
+                pos.x = bounds.MinX + waveOffset; // 안쪽 방향은 +X
                 break;
         }
 
@@ -134,36 +134,36 @@ public class Fireball : MonoBehaviour
         {
             // Bottom → Left (minX에 도달하면)
             case Edge.Bottom:
-                if (pos.x < minX + epsilon)
+                if (pos.x < bounds.MinX + epsilon)
                 {
-                    ChangeEdge(Edge.Left, new Vector2(minX, minY));
+                    ChangeEdge(Edge.Left, new Vector2(bounds.MinX, bounds.MinY));
                     return;
                 }
                 break;
 
             // Left → Top (maxY에 도달하면)
             case Edge.Left:
-                if (pos.y > maxY - epsilon)
+                if (pos.y > bounds.MaxY - epsilon)
                 {
-                    ChangeEdge(Edge.Top, new Vector2(minX, maxY));
+                    ChangeEdge(Edge.Top, new Vector2(bounds.MinX, bounds.MaxY));
                     return;
                 }
                 break;
 
             // Top → Right (maxX에 도달하면)
             case Edge.Top:
-                if (pos.x > maxX - epsilon)
+                if (pos.x > bounds.MaxX - epsilon)
                 {
-                    ChangeEdge(Edge.Right, new Vector2(maxX, maxY));
+                    ChangeEdge(Edge.Right, new Vector2(bounds.MaxX, bounds.MaxY));
                     return;
                 }
                 break;
 
             // Right → Bottom (minY에 도달하면)
             case Edge.Right:
-                if (pos.y < minY + epsilon)
+                if (pos.y < bounds.MinY + epsilon)
                 {
-                    ChangeEdge(Edge.Bottom, new Vector2(maxX, minY));
+                    ChangeEdge(Edge.Bottom, new Vector2(bounds.MaxX, bounds.MinY));
                     return;
                 }
                 break;
@@ -184,33 +184,66 @@ public class Fireball : MonoBehaviour
 
         // 코너로 1회 스냅해서 전환을 깔끔하게 만든 뒤, 다음 Edge에서 계속 이동
         rb.position = cornerPos;
-        rb.rotation = GetEdgeAngle();
+        targetAngle = EdgeMath.GetAngleForCounterClockwiseMotion(currentEdge);
+    }
+
+    private void UpdateCornerBlendedRotation()
+    {
+        if (cornerBlendDistance <= 0f)
+        {
+            targetAngle = EdgeMath.GetAngleForCounterClockwiseMotion(currentEdge);
+        }
+        else
+        {
+            Vector2 pos = rb.position;
+            Edge next = EdgeMath.GetNextEdgeCounterClockwise(currentEdge);
+
+            float a0 = EdgeMath.GetAngleForCounterClockwiseMotion(currentEdge);
+            float a1 = EdgeMath.GetAngleForCounterClockwiseMotion(next);
+            float t = 0f;
+
+            // 코너 접근 방향에 따라 t를 계산해서 각도를 미리(코너에 닿기 전) 돌려준다.
+            switch (currentEdge)
+            {
+                case Edge.Bottom: // x: MaxX -> MinX 로 이동, MinX 근처에서 Left로 전환
+                    if (pos.x < bounds.MinX + cornerBlendDistance)
+                        t = Mathf.InverseLerp(bounds.MinX + cornerBlendDistance, bounds.MinX, pos.x);
+                    break;
+                case Edge.Left: // y: MinY -> MaxY 로 이동, MaxY 근처에서 Top으로 전환
+                    if (pos.y > bounds.MaxY - cornerBlendDistance)
+                        t = Mathf.InverseLerp(bounds.MaxY - cornerBlendDistance, bounds.MaxY, pos.y);
+                    break;
+                case Edge.Top: // x: MinX -> MaxX 로 이동, MaxX 근처에서 Right로 전환
+                    if (pos.x > bounds.MaxX - cornerBlendDistance)
+                        t = Mathf.InverseLerp(bounds.MaxX - cornerBlendDistance, bounds.MaxX, pos.x);
+                    break;
+                case Edge.Right: // y: MaxY -> MinY 로 이동, MinY 근처에서 Bottom으로 전환
+                    if (pos.y < bounds.MinY + cornerBlendDistance)
+                        t = Mathf.InverseLerp(bounds.MinY + cornerBlendDistance, bounds.MinY, pos.y);
+                    break;
+            }
+
+            targetAngle = Mathf.LerpAngle(a0, a1, Mathf.Clamp01(t));
+        }
+
+        // 프레임레이트에 덜 민감한 지수 보간.
+        float alpha = 1f - Mathf.Exp(-rotationLerpSpeed * Time.fixedDeltaTime);
+        float newAngle = Mathf.LerpAngle(rb.rotation, targetAngle, alpha);
+        rb.MoveRotation(newAngle);
     }
 
     Vector2 ClampToEdge(Vector2 worldPos, Edge edge)
     {
-        float clampedX = Mathf.Clamp(worldPos.x, minX, maxX);
-        float clampedY = Mathf.Clamp(worldPos.y, minY, maxY);
+        float clampedX = Mathf.Clamp(worldPos.x, bounds.MinX, bounds.MaxX);
+        float clampedY = Mathf.Clamp(worldPos.y, bounds.MinY, bounds.MaxY);
 
         return edge switch
         {
-            Edge.Bottom => new Vector2(clampedX, minY),
-            Edge.Right => new Vector2(maxX, clampedY),
-            Edge.Top => new Vector2(clampedX, maxY),
-            Edge.Left => new Vector2(minX, clampedY),
+            Edge.Bottom => new Vector2(clampedX, bounds.MinY),
+            Edge.Right => new Vector2(bounds.MaxX, clampedY),
+            Edge.Top => new Vector2(clampedX, bounds.MaxY),
+            Edge.Left => new Vector2(bounds.MinX, clampedY),
             _ => new Vector2(clampedX, clampedY)
-        };
-    }
-
-    float GetEdgeAngle()
-    {
-        return currentEdge switch
-        {
-            Edge.Bottom => 180f,
-            Edge.Right  => -90f,
-            Edge.Top    => 0f,
-            Edge.Left   => 90f,
-            _ => 0f
         };
     }
 
