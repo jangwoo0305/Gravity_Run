@@ -251,7 +251,14 @@ public class Fireball : MonoBehaviour
     {
         if (other.CompareTag("Player"))
         {
-            Debug.Log("FireBall hit Player");
+            GameOver();
         }
+    }
+
+    public void GameOver()
+    {
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#endif
     }
 }
