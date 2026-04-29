@@ -1,4 +1,5 @@
 using UnityEngine;
+using System;
 
 public class PlayerMove : MonoBehaviour
 {
@@ -27,6 +28,9 @@ public class PlayerMove : MonoBehaviour
     public bool IsFalling => isFalling;
     public Vector2 EdgeMoveDirection => EdgeMath.GetClockwiseMoveDir(CurrentEdge);
 
+    public int CurrentLap { get; private set; }
+    public event Action<int> LapChanged;
+
     void Awake()
     {
         _cam = Camera.main;
@@ -44,6 +48,7 @@ public class PlayerMove : MonoBehaviour
         bounds = ScreenEdgeBounds.FromCamera(_cam, edgeOffset);
 
         CurrentEdge = Edge.Bottom;
+        CurrentLap = 0;
         gravityDir = Vector2.down;
         
         // 케릭터를 화면 하단 중앙에 고정
@@ -140,7 +145,16 @@ public class PlayerMove : MonoBehaviour
 
     void ChangeEdge(Edge nextEdge)
     {
+        Edge prevEdge = CurrentEdge;
         CurrentEdge = nextEdge;
+
+        // 한 바퀴( Bottom -> Right -> Top -> Left -> Bottom )가 끝나는 지점
+        // 즉 Left에서 Bottom으로 돌아오면 랩 +1
+        if (prevEdge == Edge.Left && nextEdge == Edge.Bottom)
+        {
+            CurrentLap++;
+            LapChanged?.Invoke(CurrentLap);
+        }
 
         // 위치 강제 고정
         transform.position = bounds.SnapToEdge(CurrentEdge, (Vector2)transform.position);
