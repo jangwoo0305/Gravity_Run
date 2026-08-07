@@ -6,6 +6,8 @@ public class PlayerMove : MonoBehaviour
     [SerializeField] public float edgeOffset = 0.3f;
     [SerializeField] float cornerBlendDistance = 0.2f;
     [SerializeField] public float jumpPower = 6f;
+    [SerializeField] private float coyoteTime = 0.1f;
+    [SerializeField] private float jumpBufferTime = 0.12f;
     
     public float speed = 3f;
     Vector2 velocity; // 현재 이동 속도 (누적됨)
@@ -16,6 +18,8 @@ public class PlayerMove : MonoBehaviour
     bool isFalling;
     private int jumpCount;
     private int maxJumpCount = 2;
+    private float lastGroundedTime;
+    private float lastJumpPressedTime = -999f;
     
     private Camera _cam;
     private ScreenEdgeBounds bounds;
@@ -110,10 +114,25 @@ public class PlayerMove : MonoBehaviour
 
     void HandleJumpInput()
     {
-        if (Input.GetKeyDown(KeyCode.Space) && jumpCount < maxJumpCount)
+        if (Input.GetKeyDown(KeyCode.Space))
+            lastJumpPressedTime = Time.time;
+
+        if (Time.time - lastJumpPressedTime <= jumpBufferTime && CanJump())
         {
             Jump();
+            lastJumpPressedTime = -999f;
         }
+    }
+
+    bool CanJump()
+    {
+        if (jumpCount == 0 && (isGrounded || Time.time - lastGroundedTime <= coyoteTime))
+            return true;
+
+        if (jumpCount > 0 && jumpCount < maxJumpCount)
+            return true;
+
+        return false;
     }
 
     bool CheckGrounded()
@@ -139,6 +158,7 @@ public class PlayerMove : MonoBehaviour
 
         // 🔥 핵심: 착지 상태면 무조건 상태 정리
         jumpCount = 0;
+        lastGroundedTime = Time.time;
         isJumping = false;
         isFalling = false;
     }
@@ -201,7 +221,7 @@ public class PlayerMove : MonoBehaviour
         
         velocity += -gravityDir * jumpPower;
         
-        jumpCount++;
+        jumpCount = Mathf.Max(jumpCount + 1, 1);
     }
     
     void ForceGroundAfterEdgeChange()

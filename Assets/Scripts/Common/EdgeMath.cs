@@ -91,6 +91,23 @@ public static class EdgeMath
         }
     }
 
+    public static Edge GetOppositeEdge(Edge current)
+    {
+        switch (current)
+        {
+            case Edge.Bottom:
+                return Edge.Top;
+            case Edge.Right:
+                return Edge.Left;
+            case Edge.Top:
+                return Edge.Bottom;
+            case Edge.Left:
+                return Edge.Right;
+            default:
+                return Edge.Top;
+        }
+    }
+
     public static float GetAngleForCounterClockwiseMotion(Edge edge)
     {
         // Matches GetCounterClockwiseMoveDir:
