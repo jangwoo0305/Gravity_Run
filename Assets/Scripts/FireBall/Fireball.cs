@@ -1,17 +1,15 @@
 using UnityEngine;
-using Random = UnityEngine.Random;
 
 public class Fireball : MonoBehaviour
 {
     private Rigidbody2D rb;
 
-    [SerializeField] private float minSpeed = 2f;
-    [SerializeField] private float maxSpeed = 3f;
     [SerializeField] private float edgeOffset = 0.3f; // 기본값 (풀에서 플레이어 값으로 덮어쓸 수 있음)
     [SerializeField] private float spriteRotationOffset = 180f;
     
     private Edge currentEdge;
     private float speed;
+    private float laneOffset;
 
     private ScreenEdgeBounds bounds;
 
@@ -22,7 +20,12 @@ public class Fireball : MonoBehaviour
 
     // fb.Init(spawnPos, spawnEdge, player.edgeOffset);
     // 🔹 Pool에서 호출 (생성 시 1회)
-    public void Init(Vector2 spawnWorldPos, Edge startEdge, float edgeOffsetWorld, float speedMultiplier = 1f)
+    public void Init(
+        Vector2 spawnWorldPos,
+        Edge startEdge,
+        float edgeOffsetWorld,
+        float moveSpeed,
+        float laneOffsetWorld = 0f)
     {
         Camera cam = Camera.main;
         if (cam == null)
@@ -31,12 +34,13 @@ public class Fireball : MonoBehaviour
         edgeOffset = edgeOffsetWorld;
         bounds = ScreenEdgeBounds.FromCamera(cam, edgeOffset);
 
-        speed = Random.Range(minSpeed, maxSpeed) * Mathf.Max(0.1f, speedMultiplier);
+        speed = Mathf.Max(0.1f, moveSpeed);
+        laneOffset = Mathf.Max(0f, laneOffsetWorld);
 
         currentEdge = startEdge;
 
         float angle = GetVisualAngle(currentEdge);
-        Vector2 clampedSpawn = ClampToEdge(spawnWorldPos, startEdge);
+        Vector2 clampedSpawn = ClampToLane(spawnWorldPos, startEdge);
 
         // 풀링으로 Enable/Disable 될 때 이전 포즈가 1프레임 보이지 않도록 Transform/Rigidbody2D 둘 다 세팅
         transform.SetPositionAndRotation(clampedSpawn, Quaternion.Euler(0f, 0f, angle));
@@ -65,25 +69,25 @@ public class Fireball : MonoBehaviour
             // Bottom: 왼쪽으로 이동 (플레이어 진행 방향과 반대)
             case Edge.Bottom:
                 pos.x -= delta;
-                pos.y = bounds.MinY;
+                pos.y = bounds.MinY + laneOffset;
                 break;
 
             // Right: 아래로 이동 (플레이어 진행 방향과 반대)
             case Edge.Right:
                 pos.y -= delta;
-                pos.x = bounds.MaxX;
+                pos.x = bounds.MaxX - laneOffset;
                 break;
 
             // Top: 오른쪽으로 이동 (플레이어 진행 방향과 반대)
             case Edge.Top:
                 pos.x += delta;
-                pos.y = bounds.MaxY;
+                pos.y = bounds.MaxY - laneOffset;
                 break;
 
             // Left: 위로 이동 (플레이어 진행 방향과 반대)
             case Edge.Left:
                 pos.y += delta;
-                pos.x = bounds.MinX;
+                pos.x = bounds.MinX + laneOffset;
                 break;
         }
 
@@ -124,17 +128,17 @@ public class Fireball : MonoBehaviour
         return EdgeMath.GetAngleForCounterClockwiseMotion(edge) + spriteRotationOffset;
     }
 
-    Vector2 ClampToEdge(Vector2 worldPos, Edge edge)
+    Vector2 ClampToLane(Vector2 worldPos, Edge edge)
     {
         float clampedX = Mathf.Clamp(worldPos.x, bounds.MinX, bounds.MaxX);
         float clampedY = Mathf.Clamp(worldPos.y, bounds.MinY, bounds.MaxY);
 
         return edge switch
         {
-            Edge.Bottom => new Vector2(clampedX, bounds.MinY),
-            Edge.Right => new Vector2(bounds.MaxX, clampedY),
-            Edge.Top => new Vector2(clampedX, bounds.MaxY),
-            Edge.Left => new Vector2(bounds.MinX, clampedY),
+            Edge.Bottom => new Vector2(clampedX, bounds.MinY + laneOffset),
+            Edge.Right => new Vector2(bounds.MaxX - laneOffset, clampedY),
+            Edge.Top => new Vector2(clampedX, bounds.MaxY - laneOffset),
+            Edge.Left => new Vector2(bounds.MinX + laneOffset, clampedY),
             _ => new Vector2(clampedX, clampedY)
         };
     }

@@ -121,8 +121,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 539c32bfbc66148dea41f20a086e17d5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  minSpeed: 2
-  maxSpeed: 5
   edgeOffset: 0.3
   spriteRotationOffset: 180
 --- !u!50 &-7120271913226862121

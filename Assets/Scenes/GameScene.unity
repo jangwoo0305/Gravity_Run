@@ -330,8 +330,19 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   fireballPrefab: {fileID: 6204623622705755430, guid: f2499d7675b5840869242da50d31861c, type: 3}
   poolSize: 20
-  spawnInterval: 2.8
-  minSpawnInterval: 0.85
+  spawnInterval: 1.7
+  minSpawnInterval: 0.7
+  highSpawnInterval: 3
+  minHighSpawnInterval: 1.8
+  highInitialDelay: 5
+  minimumLaneImpactGap: 0.7
+  highLaneHeightMultiplier: 2
+  normalMinProjectileSpeed: 3.4
+  normalMaxProjectileSpeed: 4.8
+  highMinProjectileSpeed: 3
+  highMaxProjectileSpeed: 4.2
+  fastMinProjectileSpeed: 5.5
+  fastMaxProjectileSpeed: 6.5
   player: {fileID: 194014646}
 --- !u!4 &513211853
 Transform:
