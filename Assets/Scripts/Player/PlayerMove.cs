@@ -8,16 +8,16 @@ public class PlayerMove : MonoBehaviour
     [SerializeField] public float jumpPower = 6f;
     [SerializeField] private float coyoteTime = 0.1f;
     [SerializeField] private float jumpBufferTime = 0.12f;
+    [SerializeField, Min(0.01f)] private float gravityPower = 20f;
+    [SerializeField, Min(1)] private int maxJumpCount = 2;
     
     public float speed = 3f;
-    Vector2 velocity; // 현재 이동 속도 (누적됨)
-    Vector2 gravityDir; // 현재 중력 방향 (edge 기준) 즉, 케릭터가 끌려가야하는 방향
-    private float gravityPower = 20f;
+    Vector2 velocity; // 점프와 낙하에 사용하는 현재 속도
+    Vector2 gravityDir; // 현재 벽이 만드는 중력 방향
     bool isGrounded;
     bool isJumping;
     bool isFalling;
     private int jumpCount;
-    private int maxJumpCount = 2;
     private float lastGroundedTime;
     private float lastJumpPressedTime = -999f;
     
@@ -30,7 +30,7 @@ public class PlayerMove : MonoBehaviour
     public bool IsGrounded => isGrounded;
     public bool IsJumping => isJumping;
     public bool IsFalling => isFalling;
-    public Vector2 EdgeMoveDirection => EdgeMath.GetClockwiseMoveDir(CurrentEdge);
+    public Vector2 EdgeMoveDirection => EdgeMath.GetPlayerMoveDir(CurrentEdge);
 
     public int CurrentLap { get; private set; }
     public event Action<int> LapChanged;
@@ -55,7 +55,7 @@ public class PlayerMove : MonoBehaviour
         CurrentLap = 0;
         gravityDir = Vector2.down;
         
-        // 케릭터를 화면 하단 중앙에 고정
+        // 캐릭터를 화면 하단 중앙에 고정
         Vector3 startpos = transform.position;
         startpos.x = (bounds.MinX + bounds.MaxX) * 0.5f;
         startpos.y = bounds.MinY;
@@ -71,11 +71,11 @@ public class PlayerMove : MonoBehaviour
     
     void Update()
     {
-        HandleJumpInput(); // 점프입력
-        ApplyGravity(); // 중력처리
-        ApplyMovement(); // 이동적용
-        CheckCornerAndChangeGravity(); // Edge 전환
-        ResolveGrounded(); // 착지판단
+        HandleJumpInput(); // 점프 입력
+        ApplyGravity(); // 현재 벽 기준 중력 처리
+        ApplyMovement(); // 벽 방향 자동 이동 + 점프/낙하 속도 적용
+        CheckCornerAndChangeGravity(); // 코너에서 다음 벽으로 전환
+        ResolveGrounded(); // 착지 판단
     }
 
     void ApplyGravity()
@@ -90,14 +90,14 @@ public class PlayerMove : MonoBehaviour
             transform.up = (Vector3)(-gravityDir);
         }
 
-        // 지상에서는 중력 가속만 적용하지 않음
+        // 벽에 붙어 달리는 동안에는 중력 가속을 누적하지 않음
         if (isGrounded)
         {
             isFalling = false;
             return;
         }
 
-        // 공중일 때만 중력 적용
+        // 공중일 때만 현재 벽 방향의 중력을 적용
         velocity += gravityDir * gravityPower * Time.deltaTime;
         
         float fallSpeed = Vector2.Dot(velocity, gravityDir);
@@ -149,14 +149,14 @@ public class PlayerMove : MonoBehaviour
         if (!isGrounded)
             return;
 
-        // 중력 방향 속도 제거
+        // 착지하면 중력 방향 속도를 제거
         Vector2 gravityVelocity = Vector2.Dot(velocity, gravityDir) * gravityDir;
         velocity -= gravityVelocity;
 
-        // 위치를 edge에 고정
+        // 현재 벽 위로 위치를 고정
         transform.position = bounds.SnapToEdge(CurrentEdge, (Vector2)transform.position);
 
-        // 🔥 핵심: 착지 상태면 무조건 상태 정리
+        // 착지 상태면 점프 관련 상태를 정리
         jumpCount = 0;
         lastGroundedTime = Time.time;
         isJumping = false;

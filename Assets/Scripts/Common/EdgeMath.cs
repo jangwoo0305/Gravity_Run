@@ -2,8 +2,8 @@ using UnityEngine;
 
 public static class EdgeMath
 {
-    // Player moves clockwise along the screen edges.
-    public static Vector2 GetClockwiseMoveDir(Edge edge)
+    // Player runs Bottom -> Right -> Top -> Left -> Bottom.
+    public static Vector2 GetPlayerMoveDir(Edge edge)
     {
         switch (edge)
         {
@@ -20,8 +20,8 @@ public static class EdgeMath
         }
     }
 
-    // Fireball moves counter-clockwise along the screen edges.
-    public static Vector2 GetCounterClockwiseMoveDir(Edge edge)
+    // Fireballs travel in the opposite direction of the player.
+    public static Vector2 GetFireballMoveDir(Edge edge)
     {
         switch (edge)
         {
@@ -55,7 +55,7 @@ public static class EdgeMath
         }
     }
 
-    public static Edge GetPreviousEdgeClockwise(Edge current)
+    public static Edge GetPreviousPlayerEdge(Edge current)
     {
         // Top -> Right, Right -> Bottom, Bottom -> Left, Left -> Top.
         switch (current)
@@ -73,7 +73,7 @@ public static class EdgeMath
         }
     }
 
-    public static Edge GetNextEdgeCounterClockwise(Edge current)
+    public static Edge GetNextFireballEdge(Edge current)
     {
         // Bottom -> Left -> Top -> Right -> Bottom.
         switch (current)
@@ -108,9 +108,9 @@ public static class EdgeMath
         }
     }
 
-    public static float GetAngleForCounterClockwiseMotion(Edge edge)
+    public static float GetAngleForFireballMotion(Edge edge)
     {
-        // Matches GetCounterClockwiseMoveDir:
+        // Matches GetFireballMoveDir:
         // Bottom: left (180), Right: down (-90), Top: right (0), Left: up (90)
         switch (edge)
         {
@@ -127,7 +127,7 @@ public static class EdgeMath
         }
     }
 
-    public static Vector2 GetStartCornerForCounterClockwiseMotion(ScreenEdgeBounds b, Edge edge)
+    public static Vector2 GetFireballStartCorner(ScreenEdgeBounds b, Edge edge)
     {
         // Bottom: start at bottom-right -> move left
         // Left: start at bottom-left -> move up

@@ -125,7 +125,7 @@ public class Fireball : MonoBehaviour
 
     private float GetVisualAngle(Edge edge)
     {
-        return EdgeMath.GetAngleForCounterClockwiseMotion(edge) + spriteRotationOffset;
+        return EdgeMath.GetAngleForFireballMotion(edge) + spriteRotationOffset;
     }
 
     Vector2 ClampToLane(Vector2 worldPos, Edge edge)
